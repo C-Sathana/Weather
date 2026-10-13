@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Weather Information App</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to right, #74ebd5, #9face6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            width: 320px;
+            max-width: calc(100% - 60px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            color: #333;
+            font-size: 25px;
+        }
+
+        form {
+            display: flex;
+            gap: 8px;
+        }
+
+        input {
+            width: 60%;
+            min-width: 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        button {
+            padding: 10px;
+            background: #4a69bd;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1e3799;
+        }
+
+        #weather {
+            margin-top: 20px;
+            color: #333;
+        }
+
+        #message {
+            color: #b00020;
+            font-size: 14px;
+        }
+
+        .temperature {
+            font-size: 32px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Weather App</h1>
+
+        <form id="weatherForm">
+            <input
+                type="text"
+                id="city"
+                placeholder="Enter city name"
+                required
+            >
+            <button type="submit">Search</button>
+        </form>
+
+        <p id="message" role="status"></p>
+        <div id="weather"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById("weatherForm");
+        const cityInput = document.getElementById("city");
+        const weatherDiv = document.getElementById("weather");
+        const message = document.getElementById("message");
+
+        form.addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            const city = cityInput.value.trim();
+
+            weatherDiv.innerHTML = "";
+            message.textContent = "";
+
+            if (city === "") {
+                message.textContent = "Please enter a city name.";
+                return;
+            }
+
+            try {
+                message.textContent = "Loading weather...";
+
+                // Get city coordinates
+                const geoURL =
+                    "https://geocoding-api.open-meteo.com/v1/search?name="
+                    + encodeURIComponent(city)
+                    + "&count=1&language=en&format=json";
+
+                const geoResponse = await fetch(geoURL);
+
+                if (!geoResponse.ok) {
+                    throw new Error("Unable to find the city.");
+                }
+
+                const geoData = await geoResponse.json();
+
+                if (!geoData.results || geoData.results.length === 0) {
+                    throw new Error("City not found. Try another name.");
+                }
+
+                const location = geoData.results[0];
+                const latitude = location.latitude;
+                const longitude = location.longitude;
+
+                // Get current weather
+                const weatherURL =
+                    "https://api.open-meteo.com/v1/forecast?latitude="
+                    + latitude
+                    + "&longitude="
+                    + longitude
+                    + "&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=auto";
+
+                const weatherResponse = await fetch(weatherURL);
+
+                if (!weatherResponse.ok) {
+                    throw new Error("Unable to get weather information.");
+                }
+
+                const weatherData = await weatherResponse.json();
+                const current = weatherData.current;
+
+                // Convert weather code to a description
+                const weatherCodes = {
+                    0: "Clear sky",
+                    1: "Mainly clear",
+                    2: "Partly cloudy",
+                    3: "Overcast",
+                    45: "Fog",
+                    48: "Depositing rime fog",
+                    51: "Light drizzle",
+                    53: "Moderate drizzle",
+                    55: "Dense drizzle",
+                    61: "Slight rain",
+                    63: "Moderate rain",
+                    65: "Heavy rain",
+                    71: "Slight snow",
+                    73: "Moderate snow",
+                    75: "Heavy snow",
+                    80: "Rain showers",
+                    81: "Moderate rain showers",
+                    82: "Violent rain showers",
+                    95: "Thunderstorm",
+                    96: "Thunderstorm with hail",
+                    99: "Severe thunderstorm with hail"
+                };
+
+                const description =
+                    weatherCodes[current.weather_code] || "Unknown conditions";
+
+                // Display weather information
+                weatherDiv.innerHTML = `
+                    <h2>${location.name}</h2>
+                    <p>${location.country || ""}</p>
+                    <p class="temperature">
+                        ${current.temperature_2m} °C
+                    </p>
+                    <p>${description}</p>
+                    <p>Feels like: ${current.apparent_temperature} °C</p>
+                    <p>Humidity: ${current.relative_humidity_2m}%</p>
+                    <p>Wind speed: ${current.wind_speed_10m} km/h</p>
+                    <p><small>Updated: ${current.time.replace("T", " ")}</small></p>
+                `;
+
+                message.textContent = "";
+
+            } catch (error) {
+                message.textContent = error.message;
+            }
+        });
+    </script>
+
+</body>
+</html>
